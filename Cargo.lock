@@ -13,6 +13,7 @@ name = "analog_film"
 version = "0.1.0"
 dependencies = [
  "image",
+ "rand",
  "rand_distr",
 ]
 
