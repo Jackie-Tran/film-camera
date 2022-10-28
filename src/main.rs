@@ -1,13 +1,10 @@
 use ::image::io::Reader as ImageReader;
 use colored::Colorize;
-use image::{
-    DynamicImage, GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, Rgba, RgbaImage,
-};
+use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
 use rand;
 use rand_distr::{Distribution, Normal};
 use std::{
     env,
-    ptr::null,
     time::{Duration, Instant},
 };
 
@@ -46,7 +43,6 @@ fn create_gaussian_noise(
 fn calculate_noisey_pixel(image: Rgba<u8>, noise: Rgba<u8>) -> Rgba<u8> {
     let mut noisey_pixel = [0, 0, 0, 0];
     for i in 0..4 {
-        // We are adding
         if image[i] > 255 - noise[i] as u8 {
             noisey_pixel[i] = 255;
         } else {
@@ -139,13 +135,13 @@ fn main() {
     let file_path = &args[1];
 
     let mut start = Instant::now();
-    let mut img = ImageReader::open(file_path).expect("valid image file to exist");
+    let img = ImageReader::open(file_path).expect("valid image file to exist");
     let mut img = img.decode().expect("decode image");
     let mut duration = start.elapsed();
     log_duration(format!("opening {}", file_path), duration);
 
     start = Instant::now();
-    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
+    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
     apply_noise(&mut img, noise);
     duration = start.elapsed();
     log_duration("applying noise".to_string(), duration);
@@ -160,5 +156,5 @@ fn main() {
     duration = start.elapsed();
     log_duration("applying light leak".to_string(), duration);
 
-    img.save("final.png");
+    let _ = img.save("final.png");
 }
