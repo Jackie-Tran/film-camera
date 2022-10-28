@@ -69,14 +69,16 @@ fn apply_noise(image: &mut DynamicImage, noise: DynamicImage) {
 fn apply_screen_blend(base: Rgba<u8>, top: Rgba<u8>) -> Rgba<u8> {
     let mut blend_pixel = [0, 0, 0, 255];
     for i in 0..3 {
-        blend_pixel[i] = 255 - ((255 - base[i]) / 255) * ((255 - top[i]) / 255) * 255;
+        blend_pixel[i] = (255.0
+            - ((255 - base[i]) as f32 / 255.0) * ((255 - top[i]) as f32 / 255.0) * 255.0)
+            as u8;
     }
     return Rgba::from(blend_pixel);
 }
 
 fn apply_film_dust(image: &mut DynamicImage) {
     // Scale film dust to image size
-    let dust = ImageReader::open("./screen_test_top.png").expect("film_dust.jpg");
+    let dust = ImageReader::open("./src/res/film_dust.jpg").expect("film_dust.jpg");
     let dust = dust.decode().expect("decode film_dust.jpg").resize_exact(
         image.width(),
         image.height(),
@@ -86,7 +88,6 @@ fn apply_film_dust(image: &mut DynamicImage) {
     // Blend the pixels
     for y in 0..image.height() {
         for x in 0..image.width() {
-            // image.get_pixel(x, y).blend(&dust.get_pixel(x, y));
             image.put_pixel(
                 x,
                 y,
@@ -104,26 +105,8 @@ fn main() {
     let mut img = img.decode().expect("decode image");
     let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
     // Apply noise
-    // apply_noise(&mut img, noise);
-    // img.save("noisey_image.png");
+    apply_noise(&mut img, noise);
     apply_film_dust(&mut img);
 
     img.save("film_dust_image.png");
-    // let _ = image::save_buffer(
-    //     "./resized film dust.png",
-    //     dust.as_bytes(),
-    //     img.width(),
-    //     img.height(),
-    //     image::ColorType::Rgb8,
-    // );
-
-    // let _ = image::save_buffer(
-    //     "./noisy_image.png",
-    //     &noisey_image[0..],
-    //     img.width(),
-    //     img.height(),
-    //     image::ColorType::Rgba8,
-    // );
-    // println!("{} {:?}", img.as_bytes().len(), &img.as_bytes()[0..5]);
-    // println!("{} {:?}", noise.len(), &noise);
 }
