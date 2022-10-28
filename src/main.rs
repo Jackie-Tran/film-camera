@@ -1,4 +1,5 @@
 use ::image::io::Reader as ImageReader;
+use image::ImageBuffer;
 use rand;
 use rand_distr::{Distribution, Normal};
 use std::env;
@@ -48,23 +49,41 @@ fn add_noise(image: &[u8], noise: &[i16]) -> Vec<u8> {
     return sum_image;
 }
 
+fn add_film_dust() {}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
 
     let img = ImageReader::open(file_path).expect("valid image file to exist");
     let img = img.decode().expect("decode image");
-    println!("{:?} {} {} ", img.color(), img.width(), img.height());
     let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
     // Apply noise
     let sum_image = add_noise(img.as_bytes(), &noise);
-    let _ = image::save_buffer(
-        "./noisy_image.png",
-        &sum_image[0..],
+
+    // Scale film dust to image size
+    let dust = ImageReader::open("./src/res/film_dust.jpg").expect("film_dust.jpg");
+    let dust = dust.decode().expect("decode film_dust.jpg").resize_exact(
         img.width(),
         img.height(),
-        image::ColorType::Rgba8,
+        image::imageops::FilterType::Triangle,
     );
+
+    let _ = image::save_buffer(
+        "./resized film dust.png",
+        dust.as_bytes(),
+        img.width(),
+        img.height(),
+        image::ColorType::Rgb8,
+    );
+
+    // let _ = image::save_buffer(
+    //     "./noisy_image.png",
+    //     &sum_image[0..],
+    //     img.width(),
+    //     img.height(),
+    //     image::ColorType::Rgba8,
+    // );
     // println!("{} {:?}", img.as_bytes().len(), &img.as_bytes()[0..5]);
     // println!("{} {:?}", noise.len(), &noise);
 }
