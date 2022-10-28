@@ -97,6 +97,29 @@ fn apply_film_dust(image: &mut DynamicImage) {
     }
 }
 
+fn apply_solar_flare(image: &mut DynamicImage) {
+    // Scale solar flare to image size
+    let solar_flare = ImageReader::open("./src/res/solar_flare.jpg").expect("solar_flare.jpg");
+    let solar_flare = solar_flare
+        .decode()
+        .expect("decode solare_flare.jpg")
+        .resize_exact(
+            image.width(),
+            image.height(),
+            image::imageops::FilterType::Triangle,
+        );
+    // Blend the pixels
+    for y in 0..image.height() {
+        for x in 0..image.width() {
+            image.put_pixel(
+                x,
+                y,
+                apply_screen_blend(image.get_pixel(x, y), solar_flare.get_pixel(x, y)),
+            );
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
@@ -104,9 +127,9 @@ fn main() {
     let mut img = ImageReader::open(file_path).expect("valid image file to exist");
     let mut img = img.decode().expect("decode image");
     let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
-    // Apply noise
     apply_noise(&mut img, noise);
     apply_film_dust(&mut img);
+    apply_solar_flare(&mut img);
 
     img.save("film_dust_image.png");
 }
