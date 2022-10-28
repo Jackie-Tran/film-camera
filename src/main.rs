@@ -1,10 +1,12 @@
 use ::image::io::Reader as ImageReader;
-use image::{
-    DynamicImage, GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, Rgba, RgbaImage,
-};
+use colored::Colorize;
+use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
 use rand;
 use rand_distr::{Distribution, Normal};
-use std::{env, ptr::null};
+use std::{
+    env,
+    time::{Duration, Instant},
+};
 
 fn create_gaussian_noise(
     mean: f64,
@@ -41,7 +43,6 @@ fn create_gaussian_noise(
 fn calculate_noisey_pixel(image: Rgba<u8>, noise: Rgba<u8>) -> Rgba<u8> {
     let mut noisey_pixel = [0, 0, 0, 0];
     for i in 0..4 {
-        // We are adding
         if image[i] > 255 - noise[i] as u8 {
             noisey_pixel[i] = 255;
         } else {
@@ -97,16 +98,63 @@ fn apply_film_dust(image: &mut DynamicImage) {
     }
 }
 
+fn apply_light_leak(image: &mut DynamicImage) {
+    // Scale solar flare to image size
+    let light_leak = ImageReader::open("./src/res/light_leak.jpg").expect("light_leak.jpg");
+    let light_leak = light_leak
+        .decode()
+        .expect("decode solare_flare.jpg")
+        .resize_exact(
+            image.width(),
+            image.height(),
+            image::imageops::FilterType::Triangle,
+        );
+    // Blend the pixels
+    for y in 0..image.height() {
+        for x in 0..image.width() {
+            image.put_pixel(
+                x,
+                y,
+                apply_screen_blend(image.get_pixel(x, y), light_leak.get_pixel(x, y)),
+            );
+        }
+    }
+}
+
+fn log_duration(process: String, duration: Duration) {
+    println!(
+        "{} {} in {:?}s",
+        "Finished".green(),
+        process,
+        duration.as_secs_f32()
+    );
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
 
-    let mut img = ImageReader::open(file_path).expect("valid image file to exist");
+    let mut start = Instant::now();
+    let img = ImageReader::open(file_path).expect("valid image file to exist");
     let mut img = img.decode().expect("decode image");
-    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
-    // Apply noise
-    apply_noise(&mut img, noise);
-    apply_film_dust(&mut img);
+    let mut duration = start.elapsed();
+    log_duration(format!("opening {}", file_path), duration);
 
-    img.save("film_dust_image.png");
+    start = Instant::now();
+    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
+    apply_noise(&mut img, noise);
+    duration = start.elapsed();
+    log_duration("applying noise".to_string(), duration);
+
+    start = Instant::now();
+    apply_film_dust(&mut img);
+    duration = start.elapsed();
+    log_duration("applying film dust".to_string(), duration);
+
+    start = Instant::now();
+    apply_light_leak(&mut img);
+    duration = start.elapsed();
+    log_duration("applying light leak".to_string(), duration);
+
+    let _ = img.save("final.png");
 }
