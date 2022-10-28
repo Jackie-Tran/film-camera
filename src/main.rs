@@ -58,7 +58,6 @@ fn main() {
     let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
     // Apply noise
     let sum_image = add_noise(img.as_bytes(), &noise);
-    println!("{:?}", &sum_image[0..5]);
     let _ = image::save_buffer(
         "./noisy_image.png",
         &sum_image[0..],
@@ -66,6 +65,6 @@ fn main() {
         img.height(),
         image::ColorType::Rgba8,
     );
-    println!("{} {:?}", img.as_bytes().len(), &img.as_bytes()[0..5]);
+    // println!("{} {:?}", img.as_bytes().len(), &img.as_bytes()[0..5]);
     // println!("{} {:?}", noise.len(), &noise);
 }
