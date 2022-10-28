@@ -1,10 +1,15 @@
 use ::image::io::Reader as ImageReader;
+use colored::Colorize;
 use image::{
     DynamicImage, GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, Rgba, RgbaImage,
 };
 use rand;
 use rand_distr::{Distribution, Normal};
-use std::{env, ptr::null};
+use std::{
+    env,
+    ptr::null,
+    time::{Duration, Instant},
+};
 
 fn create_gaussian_noise(
     mean: f64,
@@ -97,10 +102,10 @@ fn apply_film_dust(image: &mut DynamicImage) {
     }
 }
 
-fn apply_solar_flare(image: &mut DynamicImage) {
+fn apply_light_leak(image: &mut DynamicImage) {
     // Scale solar flare to image size
-    let solar_flare = ImageReader::open("./src/res/solar_flare.jpg").expect("solar_flare.jpg");
-    let solar_flare = solar_flare
+    let light_leak = ImageReader::open("./src/res/light_leak.jpg").expect("light_leak.jpg");
+    let light_leak = light_leak
         .decode()
         .expect("decode solare_flare.jpg")
         .resize_exact(
@@ -114,22 +119,46 @@ fn apply_solar_flare(image: &mut DynamicImage) {
             image.put_pixel(
                 x,
                 y,
-                apply_screen_blend(image.get_pixel(x, y), solar_flare.get_pixel(x, y)),
+                apply_screen_blend(image.get_pixel(x, y), light_leak.get_pixel(x, y)),
             );
         }
     }
+}
+
+fn log_duration(process: String, duration: Duration) {
+    println!(
+        "{} {} in {:?}s",
+        "Finished".green(),
+        process,
+        duration.as_secs_f32()
+    );
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
 
+    let mut start = Instant::now();
     let mut img = ImageReader::open(file_path).expect("valid image file to exist");
     let mut img = img.decode().expect("decode image");
+    let mut duration = start.elapsed();
+    log_duration(format!("opening {}", file_path), duration);
+
+    start = Instant::now();
     let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
     apply_noise(&mut img, noise);
-    apply_film_dust(&mut img);
-    apply_solar_flare(&mut img);
+    duration = start.elapsed();
+    log_duration("applying noise".to_string(), duration);
 
-    img.save("film_dust_image.png");
+    start = Instant::now();
+    apply_film_dust(&mut img);
+    duration = start.elapsed();
+    log_duration("applying film dust".to_string(), duration);
+
+    start = Instant::now();
+    apply_light_leak(&mut img);
+    duration = start.elapsed();
+    log_duration("applying light leak".to_string(), duration);
+
+    img.save("final.png");
 }
