@@ -1,8 +1,11 @@
 use ::image::io::Reader as ImageReader;
+use chrono::prelude::*;
 use colored::Colorize;
 use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
+use imageproc::drawing::{draw_text_mut, text_size};
 use rand;
 use rand_distr::{Distribution, Normal};
+use rusttype::{Font, Scale};
 use std::{
     env,
     time::{Duration, Instant},
@@ -121,6 +124,32 @@ fn apply_light_leak(image: &mut DynamicImage) {
     }
 }
 
+fn add_timestamp(image: &mut DynamicImage) {
+    let font = Vec::from(include_bytes!("./res/ds_digital_Font/DS-DIGIT.TTF") as &[u8]);
+    let font = Font::try_from_vec(font).unwrap();
+    let image_width = image.width() as i32;
+    let image_height = image.height() as i32;
+    let height = 29.0;
+    let scale = Scale {
+        x: height * 1.0,
+        y: height,
+    };
+
+    let timestamp = Local::now().format("%m %d %Y").to_string();
+
+    let (w, h) = text_size(scale, &font, &timestamp);
+
+    draw_text_mut(
+        image,
+        Rgba([255, 180, 0, 255]),
+        image_width - w - height as i32,
+        image_height - h - height as i32,
+        scale,
+        &font,
+        &timestamp,
+    );
+}
+
 fn log_duration(process: String, duration: Duration) {
     println!(
         "{} {} in {:?}s",
@@ -155,6 +184,11 @@ fn main() {
     apply_light_leak(&mut img);
     duration = start.elapsed();
     log_duration("applying light leak".to_string(), duration);
+
+    start = Instant::now();
+    add_timestamp(&mut img);
+    duration = start.elapsed();
+    log_duration("adding timestamp".to_string(), duration);
 
     let _ = img.save("final.png");
 }
