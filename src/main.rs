@@ -10,7 +10,7 @@ fn create_gaussian_noise(
     width: u32,
     height: u32,
     grayscale: bool,
-) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+) -> DynamicImage {
     let normal = Normal::new(mean, sd).unwrap();
     let mut rng = rand::thread_rng();
     let mut gaussian = normal.sample_iter(&mut rng);
@@ -33,47 +33,32 @@ fn create_gaussian_noise(
             }
         }
     }
-    return noise;
+    return DynamicImage::ImageRgba8(noise);
 }
 
-fn calculate_noisey_pixel(image: Rgba<u8>, noise: [i16; 4]) -> Rgba<u8> {
+fn calculate_noisey_pixel(image: Rgba<u8>, noise: Rgba<u8>) -> Rgba<u8> {
     let mut noisey_pixel = [0, 0, 0, 0];
     for i in 0..4 {
-        if noise[i] > 0 {
-            // We are adding
-            if image[i] > 255 - noise[i] as u8 {
-                noisey_pixel[i] = 255;
-            } else {
-                noisey_pixel[i] = image[i] + noise[i] as u8;
-            }
-        } else if image[i] < -noise[i] as u8 {
-            // We underflow
-            noisey_pixel[i] = 0;
+        // We are adding
+        if image[i] > 255 - noise[i] as u8 {
+            noisey_pixel[i] = 255;
         } else {
-            // We are subtracting
-            noisey_pixel[i] = image[i] - -noise[i] as u8;
+            noisey_pixel[i] = image[i] + noise[i] as u8;
         }
     }
     return Rgba::from(noisey_pixel);
 }
 
-fn add_noise(image: &mut DynamicImage, noise: &[i16]) {
+fn apply_noise(image: &mut DynamicImage, noise: DynamicImage) {
     let width = image.width();
     let height = image.height();
-    let image_size = (width * height * 4) as usize;
-    assert!(image_size == noise.len());
+    let image_size = width * height;
+    assert!(image_size == noise.width() * noise.height());
 
     // Go through each pixel and apply noise
     for y in 0..height {
         for x in 0..width {
-            let index = (width * x + y) as usize;
-            let noise_pixel = [
-                noise[index],
-                noise[index + 1],
-                noise[index + 2],
-                noise[index + 3],
-            ];
-            let noisey_pixel = calculate_noisey_pixel(image.get_pixel(x, y), noise_pixel);
+            let noisey_pixel = calculate_noisey_pixel(image.get_pixel(x, y), noise.get_pixel(x, y));
             image.put_pixel(x, y, noisey_pixel);
         }
     }
@@ -87,10 +72,10 @@ fn main() {
 
     let mut img = ImageReader::open(file_path).expect("valid image file to exist");
     let mut img = img.decode().expect("decode image");
-    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
-    noise.save("noise.png");
+    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), true);
     // Apply noise
-    // let noisey_image = add_noise(&mut img, &noise);
+    apply_noise(&mut img, noise);
+    img.save("noisey image.png");
     // img.save("./noisey_image.png");
     // println!("{:?}", &img.as_bytes()[0..5]);
     // println!("{:?}", &noisey_image[0..5]);
