@@ -138,16 +138,48 @@ fn add_timestamp(image: &mut DynamicImage) {
     let timestamp = Local::now().format("%m %d %Y").to_string();
 
     let (w, h) = text_size(scale, &font, &timestamp);
-
+    let mut text_image = RgbaImage::new(w as u32, h as u32);
+    let mut outer_glow = RgbaImage::new(w as u32, h as u32);
     draw_text_mut(
-        image,
+        &mut text_image,
         Rgba([255, 180, 0, 255]),
-        image_width - w - height as i32,
-        image_height - h - height as i32,
+        -2,
+        -2,
         scale,
         &font,
         &timestamp,
     );
+    draw_text_mut(
+        &mut outer_glow,
+        Rgba([255, 0, 0, 100]),
+        0,
+        -1,
+        scale,
+        &font,
+        &timestamp,
+    );
+    draw_text_mut(
+        &mut outer_glow,
+        Rgba([255, 0, 0, 100]),
+        -3,
+        -3,
+        scale,
+        &font,
+        &timestamp,
+    );
+
+    // Apply outer glow
+    for y in 0..h as u32 {
+        for x in 0..w as u32 {
+            text_image.put_pixel(
+                x,
+                y,
+                apply_screen_blend(*text_image.get_pixel(x, y), *outer_glow.get_pixel(x, y)),
+            );
+        }
+    }
+    let _ = text_image.save("text.png");
+    let _ = outer_glow.save("glow.png");
 }
 
 fn log_duration(process: String, duration: Duration) {
@@ -169,21 +201,21 @@ fn main() {
     let mut duration = start.elapsed();
     log_duration(format!("opening {}", file_path), duration);
 
-    start = Instant::now();
-    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
-    apply_noise(&mut img, noise);
-    duration = start.elapsed();
-    log_duration("applying noise".to_string(), duration);
+    // start = Instant::now();
+    // let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
+    // apply_noise(&mut img, noise);
+    // duration = start.elapsed();
+    // log_duration("applying noise".to_string(), duration);
 
-    start = Instant::now();
-    apply_film_dust(&mut img);
-    duration = start.elapsed();
-    log_duration("applying film dust".to_string(), duration);
+    // start = Instant::now();
+    // apply_film_dust(&mut img);
+    // duration = start.elapsed();
+    // log_duration("applying film dust".to_string(), duration);
 
-    start = Instant::now();
-    apply_light_leak(&mut img);
-    duration = start.elapsed();
-    log_duration("applying light leak".to_string(), duration);
+    // start = Instant::now();
+    // apply_light_leak(&mut img);
+    // duration = start.elapsed();
+    // log_duration("applying light leak".to_string(), duration);
 
     start = Instant::now();
     add_timestamp(&mut img);
