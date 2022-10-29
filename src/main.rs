@@ -1,7 +1,7 @@
 use ::image::io::Reader as ImageReader;
 use chrono::prelude::*;
 use colored::Colorize;
-use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, Rgba, RgbaImage};
 use imageproc::drawing::{draw_text_mut, text_size};
 use rand;
 use rand_distr::{Distribution, Normal};
@@ -64,7 +64,10 @@ fn apply_noise(image: &mut DynamicImage, noise: DynamicImage) {
     // Go through each pixel and apply noise
     for y in 0..height {
         for x in 0..width {
-            let noisey_pixel = calculate_noisey_pixel(image.get_pixel(x, y), noise.get_pixel(x, y));
+            let noisey_pixel = calculate_noisey_pixel(
+                image::GenericImageView::get_pixel(image, x, y),
+                image::GenericImageView::get_pixel(&noise, x, y),
+            );
             image.put_pixel(x, y, noisey_pixel);
         }
     }
@@ -72,7 +75,7 @@ fn apply_noise(image: &mut DynamicImage, noise: DynamicImage) {
 
 fn apply_screen_blend(base: Rgba<u8>, top: Rgba<u8>) -> Rgba<u8> {
     let mut blend_pixel = [0, 0, 0, 255];
-    for i in 0..3 {
+    for i in 0..4 {
         blend_pixel[i] = (255.0
             - ((255 - base[i]) as f32 / 255.0) * ((255 - top[i]) as f32 / 255.0) * 255.0)
             as u8;
@@ -95,7 +98,10 @@ fn apply_film_dust(image: &mut DynamicImage) {
             image.put_pixel(
                 x,
                 y,
-                apply_screen_blend(image.get_pixel(x, y), dust.get_pixel(x, y)),
+                apply_screen_blend(
+                    image::GenericImageView::get_pixel(image, x, y),
+                    image::GenericImageView::get_pixel(&dust, x, y),
+                ),
             );
         }
     }
@@ -118,17 +124,18 @@ fn apply_light_leak(image: &mut DynamicImage) {
             image.put_pixel(
                 x,
                 y,
-                apply_screen_blend(image.get_pixel(x, y), light_leak.get_pixel(x, y)),
+                apply_screen_blend(
+                    image::GenericImageView::get_pixel(image, x, y),
+                    image::GenericImageView::get_pixel(&light_leak, x, y),
+                ),
             );
         }
     }
 }
 
-fn add_timestamp(image: &mut DynamicImage) {
+fn create_timestamp() -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
     let font = Vec::from(include_bytes!("./res/ds_digital_Font/DS-DIGIT.TTF") as &[u8]);
     let font = Font::try_from_vec(font).unwrap();
-    let image_width = image.width() as i32;
-    let image_height = image.height() as i32;
     let height = 29.0;
     let scale = Scale {
         x: height * 1.0,
@@ -142,7 +149,7 @@ fn add_timestamp(image: &mut DynamicImage) {
     let mut outer_glow = RgbaImage::new(w as u32, h as u32);
     draw_text_mut(
         &mut text_image,
-        Rgba([255, 180, 0, 255]),
+        Rgba([255, 180, 0, 200]),
         -2,
         -2,
         scale,
@@ -178,8 +185,25 @@ fn add_timestamp(image: &mut DynamicImage) {
             );
         }
     }
-    let _ = text_image.save("text.png");
-    let _ = outer_glow.save("glow.png");
+    text_image.save("text.png");
+    return text_image;
+}
+
+fn add_timestamp(image: &mut DynamicImage, timestamp: image::ImageBuffer<Rgba<u8>, Vec<u8>>) {
+    let offset_x = image.width() - timestamp.width() - timestamp.width() / 4;
+    let offset_y = image.height() - timestamp.height() - timestamp.height();
+    for y in 0..timestamp.height() {
+        for x in 0..timestamp.width() {
+            image.put_pixel(
+                offset_x + x,
+                offset_y + y,
+                apply_screen_blend(
+                    image.get_pixel(offset_x + x, offset_y + y),
+                    *timestamp.get_pixel(x, y),
+                ),
+            )
+        }
+    }
 }
 
 fn log_duration(process: String, duration: Duration) {
@@ -201,24 +225,25 @@ fn main() {
     let mut duration = start.elapsed();
     log_duration(format!("opening {}", file_path), duration);
 
-    // start = Instant::now();
-    // let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
-    // apply_noise(&mut img, noise);
-    // duration = start.elapsed();
-    // log_duration("applying noise".to_string(), duration);
-
-    // start = Instant::now();
-    // apply_film_dust(&mut img);
-    // duration = start.elapsed();
-    // log_duration("applying film dust".to_string(), duration);
-
-    // start = Instant::now();
-    // apply_light_leak(&mut img);
-    // duration = start.elapsed();
-    // log_duration("applying light leak".to_string(), duration);
+    start = Instant::now();
+    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
+    apply_noise(&mut img, noise);
+    duration = start.elapsed();
+    log_duration("applying noise".to_string(), duration);
 
     start = Instant::now();
-    add_timestamp(&mut img);
+    apply_film_dust(&mut img);
+    duration = start.elapsed();
+    log_duration("applying film dust".to_string(), duration);
+
+    start = Instant::now();
+    apply_light_leak(&mut img);
+    duration = start.elapsed();
+    log_duration("applying light leak".to_string(), duration);
+
+    start = Instant::now();
+    let timestamp = create_timestamp();
+    add_timestamp(&mut img, timestamp);
     duration = start.elapsed();
     log_duration("adding timestamp".to_string(), duration);
 
