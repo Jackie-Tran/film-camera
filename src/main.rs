@@ -136,13 +136,13 @@ fn apply_light_leak(image: &mut DynamicImage, light_leak_path: &str) {
     }
 }
 
-fn create_timestamp(font_path: &str) -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
+fn create_timestamp(image_height: f32, font_path: &str) -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut file = File::open(font_path).expect("error opening font file.");
     let mut font = Vec::new();
     file.read_to_end(&mut font)
         .expect("Error reading font file.");
     let font = Font::try_from_vec(font).unwrap();
-    let height = 29.0;
+    let height = image_height / 25.0;
     let scale = Scale {
         x: height * 1.0,
         y: height,
@@ -223,34 +223,37 @@ fn log_duration(process: String, duration: Duration) {
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Standard deviation for gaussian distribution
     #[arg(short, long, default_value_t = 0.08)]
     noise_intensity: f32,
 
+    /// Use grayscale noise
     #[arg(short, long, default_value_t = false)]
     grayscale_noise: bool,
 
+    /// Add timestamp to final image
     #[arg(short, long, default_value_t = false)]
     timestamp: bool,
 
+    /// Output destination
     #[arg(short, long)]
     output: String,
 
+    /// Input image
     input_file: String,
 }
 fn main() {
     let cli = Cli::parse();
-
-    let output = String::from(cli.output);
 
     let dust_image_path = concat!(env!("OUT_DIR"), "/res/film_dust.jpg");
     let light_leak_path = concat!(env!("OUT_DIR"), "/res/light_leak.jpg");
     let font_path = concat!(env!("OUT_DIR"), "/res/DS-DIGIT.TTF");
 
     let mut start = Instant::now();
-    let img = ImageReader::open(cli.input_file).expect("input image file to exist");
+    let img = ImageReader::open(cli.input_file.clone()).expect("input image file to exist");
     let mut img = img.decode().expect("decode image");
     let mut duration = start.elapsed();
-    log_duration(format!("opening {}", output), duration);
+    log_duration(format!("opening {}", cli.input_file), duration);
 
     start = Instant::now();
     let noise = create_gaussian_noise(
@@ -276,11 +279,11 @@ fn main() {
 
     if cli.timestamp {
         start = Instant::now();
-        let timestamp = create_timestamp(font_path);
+        let timestamp = create_timestamp(img.height() as f32, font_path);
         add_timestamp(&mut img, timestamp);
         duration = start.elapsed();
         log_duration("adding timestamp".to_string(), duration);
     }
 
-    let _ = img.save(output);
+    let _ = img.save(cli.output);
 }

@@ -1,5 +1,5 @@
 [package]
-name = "analog_film"
+name = "filmcamera"
 authors = ["Jackie T. <jtran2009a@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
