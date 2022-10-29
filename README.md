@@ -43,8 +43,8 @@ filmcamera -n="0.1" -t --output output.jpg input.jpg
 ---
 
 ## Image Processing Todo
-- [ ] Curve?/Contrast
+- [ ] Contrast/Curve
 - [x] Noise
-- [x] Dust/Grain?
+- [x] Dust/Grain
 - [x] Light leak
 - [x] Timestamp
