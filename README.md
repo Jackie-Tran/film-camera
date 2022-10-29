@@ -1,4 +1,4 @@
-# 35mm Film Camera Filter
+# 35mm Film Camera Filter 📷
 ---
 Makes photo look like they were taken with a 35mm analog camera.
 
