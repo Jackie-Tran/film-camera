@@ -185,7 +185,6 @@ fn create_timestamp() -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
             );
         }
     }
-    text_image.save("text.png");
     return text_image;
 }
 
