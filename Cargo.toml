@@ -16,3 +16,7 @@ imageproc = "0.23.0"
 rusttype = "0.9.2"
 chrono = "0.4.22"
 clap = {version = "4.0.18", features= ["derive"]}
+
+[build-dependencies]
+fs_extra = "1.2.0"
+image = "0.24.4"

@@ -7,7 +7,12 @@ use imageproc::drawing::{draw_text_mut, text_size};
 use rand;
 use rand_distr::{Distribution, Normal};
 use rusttype::{Font, Scale};
-use std::time::{Duration, Instant};
+use std::{
+    env,
+    fs::File,
+    io::Read,
+    time::{Duration, Instant},
+};
 
 fn create_gaussian_noise(
     mean: f32,
@@ -81,9 +86,9 @@ fn apply_screen_blend(base: Rgba<u8>, top: Rgba<u8>) -> Rgba<u8> {
     return Rgba::from(blend_pixel);
 }
 
-fn apply_film_dust(img: &mut DynamicImage) {
+fn apply_film_dust(img: &mut DynamicImage, dust_image_path: &str) {
     // Scale film dust to image size
-    let dust = ImageReader::open("./res/film_dust.jpg").expect("film_dust.jpg");
+    let dust = ImageReader::open(dust_image_path).expect("film_dust.jpg");
     let dust = dust.decode().expect("decode film_dust.jpg").resize_exact(
         img.width(),
         img.height(),
@@ -105,9 +110,9 @@ fn apply_film_dust(img: &mut DynamicImage) {
     }
 }
 
-fn apply_light_leak(image: &mut DynamicImage) {
+fn apply_light_leak(image: &mut DynamicImage, light_leak_path: &str) {
     // Scale solar flare to image size
-    let light_leak = ImageReader::open("./res/light_leak.jpg").expect("light_leak.jpg");
+    let light_leak = ImageReader::open(light_leak_path).expect("light_leak.jpg");
     let light_leak = light_leak
         .decode()
         .expect("decode solare_flare.jpg")
@@ -131,8 +136,11 @@ fn apply_light_leak(image: &mut DynamicImage) {
     }
 }
 
-fn create_timestamp() -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
-    let font = Vec::from(include_bytes!("./res/DS-DIGIT.TTF") as &[u8]);
+fn create_timestamp(font_path: &str) -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
+    let mut file = File::open(font_path).expect("error opening font file.");
+    let mut font = Vec::new();
+    file.read_to_end(&mut font)
+        .expect("Error reading font file.");
     let font = Font::try_from_vec(font).unwrap();
     let height = 29.0;
     let scale = Scale {
@@ -234,6 +242,10 @@ fn main() {
 
     let output = String::from(cli.output);
 
+    let dust_image_path = concat!(env!("OUT_DIR"), "/res/film_dust.jpg");
+    let light_leak_path = concat!(env!("OUT_DIR"), "/res/light_leak.jpg");
+    let font_path = concat!(env!("OUT_DIR"), "/res/DS-DIGIT.TTF");
+
     let mut start = Instant::now();
     let img = ImageReader::open(cli.input_file).expect("input image file to exist");
     let mut img = img.decode().expect("decode image");
@@ -253,18 +265,18 @@ fn main() {
     log_duration("applying noise".to_string(), duration);
 
     start = Instant::now();
-    apply_film_dust(&mut img);
+    apply_film_dust(&mut img, dust_image_path);
     duration = start.elapsed();
     log_duration("applying film dust".to_string(), duration);
 
     start = Instant::now();
-    apply_light_leak(&mut img);
+    apply_light_leak(&mut img, light_leak_path);
     duration = start.elapsed();
     log_duration("applying light leak".to_string(), duration);
 
     if cli.timestamp {
         start = Instant::now();
-        let timestamp = create_timestamp();
+        let timestamp = create_timestamp(font_path);
         add_timestamp(&mut img, timestamp);
         duration = start.elapsed();
         log_duration("adding timestamp".to_string(), duration);
