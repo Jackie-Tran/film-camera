@@ -1,19 +1,17 @@
 use ::image::io::Reader as ImageReader;
 use chrono::prelude::*;
+use clap::Parser;
 use colored::Colorize;
-use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, Rgba, RgbaImage};
+use image::{DynamicImage, GenericImage, GenericImageView, Rgba, RgbaImage};
 use imageproc::drawing::{draw_text_mut, text_size};
 use rand;
 use rand_distr::{Distribution, Normal};
 use rusttype::{Font, Scale};
-use std::{
-    env,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 fn create_gaussian_noise(
-    mean: f64,
-    sd: f64,
+    mean: f32,
+    sd: f32,
     width: u32,
     height: u32,
     grayscale: bool,
@@ -83,23 +81,23 @@ fn apply_screen_blend(base: Rgba<u8>, top: Rgba<u8>) -> Rgba<u8> {
     return Rgba::from(blend_pixel);
 }
 
-fn apply_film_dust(image: &mut DynamicImage) {
+fn apply_film_dust(img: &mut DynamicImage) {
     // Scale film dust to image size
-    let dust = ImageReader::open("./src/res/film_dust.jpg").expect("film_dust.jpg");
+    let dust = ImageReader::open("./res/film_dust.jpg").expect("film_dust.jpg");
     let dust = dust.decode().expect("decode film_dust.jpg").resize_exact(
-        image.width(),
-        image.height(),
+        img.width(),
+        img.height(),
         image::imageops::FilterType::Triangle,
     );
 
     // Blend the pixels
-    for y in 0..image.height() {
-        for x in 0..image.width() {
-            image.put_pixel(
+    for y in 0..img.height() {
+        for x in 0..img.width() {
+            img.put_pixel(
                 x,
                 y,
                 apply_screen_blend(
-                    image::GenericImageView::get_pixel(image, x, y),
+                    image::GenericImageView::get_pixel(img, x, y),
                     image::GenericImageView::get_pixel(&dust, x, y),
                 ),
             );
@@ -109,7 +107,7 @@ fn apply_film_dust(image: &mut DynamicImage) {
 
 fn apply_light_leak(image: &mut DynamicImage) {
     // Scale solar flare to image size
-    let light_leak = ImageReader::open("./src/res/light_leak.jpg").expect("light_leak.jpg");
+    let light_leak = ImageReader::open("./res/light_leak.jpg").expect("light_leak.jpg");
     let light_leak = light_leak
         .decode()
         .expect("decode solare_flare.jpg")
@@ -134,7 +132,7 @@ fn apply_light_leak(image: &mut DynamicImage) {
 }
 
 fn create_timestamp() -> image::ImageBuffer<Rgba<u8>, Vec<u8>> {
-    let font = Vec::from(include_bytes!("./res/ds_digital_Font/DS-DIGIT.TTF") as &[u8]);
+    let font = Vec::from(include_bytes!("./res/DS-DIGIT.TTF") as &[u8]);
     let font = Font::try_from_vec(font).unwrap();
     let height = 29.0;
     let scale = Scale {
@@ -214,18 +212,42 @@ fn log_duration(process: String, duration: Duration) {
     );
 }
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[arg(short, long, default_value_t = 0.08)]
+    noise_intensity: f32,
+
+    #[arg(short, long, default_value_t = false)]
+    grayscale_noise: bool,
+
+    #[arg(short, long, default_value_t = false)]
+    timestamp: bool,
+
+    #[arg(short, long)]
+    output: String,
+
+    input_file: String,
+}
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let file_path = &args[1];
+    let cli = Cli::parse();
+
+    let output = String::from(cli.output);
 
     let mut start = Instant::now();
-    let img = ImageReader::open(file_path).expect("valid image file to exist");
+    let img = ImageReader::open(cli.input_file).expect("input image file to exist");
     let mut img = img.decode().expect("decode image");
     let mut duration = start.elapsed();
-    log_duration(format!("opening {}", file_path), duration);
+    log_duration(format!("opening {}", output), duration);
 
     start = Instant::now();
-    let noise = create_gaussian_noise(0.0, 0.08, img.width(), img.height(), false);
+    let noise = create_gaussian_noise(
+        0.0,
+        cli.noise_intensity,
+        img.width(),
+        img.height(),
+        cli.grayscale_noise,
+    );
     apply_noise(&mut img, noise);
     duration = start.elapsed();
     log_duration("applying noise".to_string(), duration);
@@ -240,11 +262,13 @@ fn main() {
     duration = start.elapsed();
     log_duration("applying light leak".to_string(), duration);
 
-    start = Instant::now();
-    let timestamp = create_timestamp();
-    add_timestamp(&mut img, timestamp);
-    duration = start.elapsed();
-    log_duration("adding timestamp".to_string(), duration);
+    if cli.timestamp {
+        start = Instant::now();
+        let timestamp = create_timestamp();
+        add_timestamp(&mut img, timestamp);
+        duration = start.elapsed();
+        log_duration("adding timestamp".to_string(), duration);
+    }
 
-    let _ = img.save("final.png");
+    let _ = img.save(output);
 }
