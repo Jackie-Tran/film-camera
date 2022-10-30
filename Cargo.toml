@@ -1,8 +1,22 @@
 [package]
-name = "analog_film"
+name = "filmcamera"
+authors = ["Jackie T. <jtran2009a@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
+description = "Makes photo look like they were taken with a 35mm analog camera."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+image = "0.24.4"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+colored = "2.0.0"
+imageproc = "0.23.0"
+rusttype = "0.9.2"
+chrono = "0.4.22"
+clap = {version = "4.0.18", features= ["derive"]}
+
+[build-dependencies]
+fs_extra = "1.2.0"
+image = "0.24.4"
